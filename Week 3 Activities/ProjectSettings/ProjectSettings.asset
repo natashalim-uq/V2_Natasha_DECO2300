@@ -4,7 +4,7 @@
 PlayerSettings:
   m_ObjectHideFlags: 0
   serializedVersion: 28
-  productGUID: 989b58acf1ee44a61a308e9239953feb
+  productGUID: c43f8389c63cd4adeb66a0835fa4040b
   AndroidProfiler: 0
   AndroidFilterTouchesWhenObscured: 0
   AndroidEnableSustainedPerformanceMode: 0
@@ -925,10 +925,10 @@ PlayerSettings:
   captureStartupLogs: {}
   activeInputHandler: 1
   windowsGamepadBackendHint: 0
-  cloudProjectId: e44c37a3-2372-4891-a54c-1bf3793509df
+  cloudProjectId: 676150a7-5323-4ad5-895c-ec770f1be7cc
   framebufferDepthMemorylessMode: 0
   qualitySettingsNames: []
-  projectName: Week 3 Activities
+  projectName: Week 3 Activities 2026-08-19_14-25-12
   organizationId: natbeanz
   cloudEnabled: 0
   legacyClampBlendShapeWeights: 0
