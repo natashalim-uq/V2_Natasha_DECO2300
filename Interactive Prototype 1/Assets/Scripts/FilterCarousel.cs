@@ -2,52 +2,59 @@ using UnityEngine;
 
 public class FilterCarousel : MonoBehaviour
 {
-    // Drag each filter icon GameObject into this array in the Inspector.
-    // Only one will be shown/active at a time.
+    // Filter icon GameObject array cycles through carousel, only one icon is visible at a time
     public GameObject[] filterIcons;
 
+    // Tracks the index of the currently displayed filter icon
     private int currentIndex = 0;
 
     private void Start()
     {
+        // On scene start, make sure only the first filter icon is visible
         ShowCurrent();
     }
 
     // Wire the Right Arrow button's On Click() to this
     public void NextFilter()
     {
-        currentIndex++;
+        currentIndex++; 
+
+        // Wrap back to the beginning on last icon
         if (currentIndex >= filterIcons.Length)
         {
-            currentIndex = 0; // wrap back to the start
+            currentIndex = 0;
         }
-        ShowCurrent();
+
+        ShowCurrent(); // Refresh which icon is visible
     }
 
     // Wire the Left Arrow button's On Click() to this
     public void PreviousFilter()
     {
-        currentIndex--;
+        currentIndex--; // Move backward one filter
+
+        // Wrap around to end on the last icon
         if (currentIndex < 0)
         {
-            currentIndex = filterIcons.Length - 1; // wrap to the end
+            currentIndex = filterIcons.Length - 1;
         }
-        ShowCurrent();
+
+        ShowCurrent(); // Refresh which icon is visible
     }
 
     // Wire your Confirm/Next (proceed) button to this
     public void ConfirmSelection()
     {
+        // Log  name of the  selected filter icon in the Console.
         Debug.Log("Selected filter: " + filterIcons[currentIndex].name);
-        // Staging environment goes here later — for now this just confirms
-        // which filter was chosen, visible in the Console.
     }
 
+    // Shows only the icon at currentIndex, hides all others
     private void ShowCurrent()
     {
-        // Turn all icons off, then turn on just the current one
         for (int i = 0; i < filterIcons.Length; i++)
         {
+            // SetActive(true) only for the matching index, false for everything else
             filterIcons[i].SetActive(i == currentIndex);
         }
     }
