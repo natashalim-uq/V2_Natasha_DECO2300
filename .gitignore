@@ -13,11 +13,17 @@
 [Uu]ser[Ss]ettings/
 [Mm]emoryCaptures/
 [Rr]ecordings/
+.utmp/
 
 # Unity builds and exports
 [Bb]uild/
 [Bb]uilds/
 [Ee]xports/
+
+# IL2CPP intermediate output and "do not ship" backups
+il2cppOutput/
+*_BackUpThisFolder_ButDontShipItWithYourGame/
+*_BurstDebugInformation_DoNotShip/
 
 # Asset Store Tools plugin
 [Aa]ssets/AssetStoreTools*
@@ -31,6 +37,7 @@ ExportedObj/
 *.csproj
 *.unityproj
 *.sln
+*.slnx
 *.suo
 *.tmp
 *.user
