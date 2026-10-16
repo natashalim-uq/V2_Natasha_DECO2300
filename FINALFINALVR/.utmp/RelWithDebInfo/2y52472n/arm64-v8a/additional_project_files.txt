@@ -1,0 +1,17 @@
+/Users/natashalim/Documents/GitHub/V2_Natasha_DECO2300/FINALFINALVR/Library/Bee/Android/Prj/IL2CPP/Gradle/unityLibrary/src/main/cpp/GameActivity/GAToUnityCallbacks.h
+/Users/natashalim/Documents/GitHub/V2_Natasha_DECO2300/FINALFINALVR/Library/Bee/Android/Prj/IL2CPP/Gradle/unityLibrary/src/main/cpp/GameActivity/MacroEnd.h
+/Users/natashalim/Documents/GitHub/V2_Natasha_DECO2300/FINALFINALVR/Library/Bee/Android/Prj/IL2CPP/Gradle/unityLibrary/src/main/cpp/GameActivity/MacroHeaderBegin.h
+/Users/natashalim/Documents/GitHub/V2_Natasha_DECO2300/FINALFINALVR/Library/Bee/Android/Prj/IL2CPP/Gradle/unityLibrary/src/main/cpp/GameActivity/MacroSourceBegin.h
+/Users/natashalim/Documents/GitHub/V2_Natasha_DECO2300/FINALFINALVR/Library/Bee/Android/Prj/IL2CPP/Gradle/unityLibrary/src/main/cpp/GameActivity/UGAApplication.h
+/Users/natashalim/Documents/GitHub/V2_Natasha_DECO2300/FINALFINALVR/Library/Bee/Android/Prj/IL2CPP/Gradle/unityLibrary/src/main/cpp/GameActivity/UGAConfiguration.h
+/Users/natashalim/Documents/GitHub/V2_Natasha_DECO2300/FINALFINALVR/Library/Bee/Android/Prj/IL2CPP/Gradle/unityLibrary/src/main/cpp/GameActivity/UGADebug.h
+/Users/natashalim/Documents/GitHub/V2_Natasha_DECO2300/FINALFINALVR/Library/Bee/Android/Prj/IL2CPP/Gradle/unityLibrary/src/main/cpp/GameActivity/UGAEvents.h
+/Users/natashalim/Documents/GitHub/V2_Natasha_DECO2300/FINALFINALVR/Library/Bee/Android/Prj/IL2CPP/Gradle/unityLibrary/src/main/cpp/GameActivity/UGAInput.h
+/Users/natashalim/Documents/GitHub/V2_Natasha_DECO2300/FINALFINALVR/Library/Bee/Android/Prj/IL2CPP/Gradle/unityLibrary/src/main/cpp/GameActivity/UGASoftKeyboard.h
+/Users/natashalim/Documents/GitHub/V2_Natasha_DECO2300/FINALFINALVR/Library/Bee/Android/Prj/IL2CPP/Gradle/unityLibrary/src/main/cpp/GameActivity/UGASoftKeyboardCallbacks.h
+/Users/natashalim/Documents/GitHub/V2_Natasha_DECO2300/FINALFINALVR/Library/Bee/Android/Prj/IL2CPP/Gradle/unityLibrary/src/main/cpp/GameActivity/UGATypes.h
+/Users/natashalim/Documents/GitHub/V2_Natasha_DECO2300/FINALFINALVR/Library/Bee/Android/Prj/IL2CPP/Gradle/unityLibrary/src/main/cpp/GameActivity/UGAVersion.h
+/Users/natashalim/Documents/GitHub/V2_Natasha_DECO2300/FINALFINALVR/Library/Bee/Android/Prj/IL2CPP/Gradle/unityLibrary/src/main/cpp/GameActivity/UnityToGACallbacks.h
+/Users/natashalim/Documents/GitHub/V2_Natasha_DECO2300/FINALFINALVR/Library/Bee/Android/Prj/IL2CPP/Gradle/unityLibrary/src/main/cpp/GameActivity/UnityToGAConfigurationCallbacks.h
+/Users/natashalim/Documents/GitHub/V2_Natasha_DECO2300/FINALFINALVR/Library/Bee/Android/Prj/IL2CPP/Gradle/unityLibrary/src/main/cpp/GameActivity/UnityToGAKeyEventCallbacks.h
+/Users/natashalim/Documents/GitHub/V2_Natasha_DECO2300/FINALFINALVR/Library/Bee/Android/Prj/IL2CPP/Gradle/unityLibrary/src/main/cpp/GameActivity/UnityToGAMotionEventCallbacks.h
