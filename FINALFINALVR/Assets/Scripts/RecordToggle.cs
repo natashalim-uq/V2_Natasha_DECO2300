@@ -24,6 +24,9 @@ public class RecordToggle : MonoBehaviour
     public AudioClip startSound;
     public AudioClip stopSound;
 
+    [Tooltip("Optional: shown only while recording, e.g. the Viewfinder screen")]
+    public GameObject showWhileRecording;
+
     public Color idleColor = Color.white;
     public Color recordingColor = new Color(0.9f, 0.15f, 0.15f);
 
@@ -34,6 +37,7 @@ public class RecordToggle : MonoBehaviour
     {
         if (recordingDot != null) recordingDot.SetActive(false);
         if (buttonImage != null) buttonImage.color = idleColor;
+        if (showWhileRecording != null) showWhileRecording.SetActive(false);
     }
 
     // Method linked to a Button's OnClick() event in the Inspector
@@ -51,6 +55,7 @@ public class RecordToggle : MonoBehaviour
             if (buttonLabel != null) buttonLabel.SetText("Stop");
             if (buttonImage != null) buttonImage.color = recordingColor;
             if (audioSource != null && startSound != null) audioSource.PlayOneShot(startSound);
+            if (showWhileRecording != null) showWhileRecording.SetActive(true);
             if (recorder != null) recorder.StartRecording();
         }
         else
@@ -65,6 +70,7 @@ public class RecordToggle : MonoBehaviour
             if (buttonLabel != null) buttonLabel.SetText("Record");
             if (buttonImage != null) buttonImage.color = idleColor;
             if (recordingDot != null) recordingDot.SetActive(false);
+            if (showWhileRecording != null) showWhileRecording.SetActive(false);
             if (audioSource != null && stopSound != null) audioSource.PlayOneShot(stopSound);
         }
     }
