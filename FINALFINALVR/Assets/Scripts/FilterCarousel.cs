@@ -1,3 +1,4 @@
+using System.Collections;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
@@ -26,6 +27,18 @@ public class FilterCarousel : MonoBehaviour
     [Tooltip("The scene's Global Volume. Its Color Filter is set to the filter colour, so everything you see is tinted.")]
     public Volume environmentVolume;
 
+    [Header("Optional: real filter looks (e.g. Instagram-style)")]
+    [Tooltip("A second Global Volume, with a higher Priority than the main one. Its profile is swapped to the selected look.")]
+    public Volume filterVolume;
+
+    [Tooltip("One Volume Profile per filter, in the same order as the icons. Each can use any effects: Split Toning, Color Adjustments, Vignette...")]
+    public VolumeProfile[] filterLooks;
+
+    [Tooltip("Big centred name that pops up when you switch filter, then fades away (like Instagram)")]
+    public TMP_Text flashNameLabel;
+    public float flashSeconds = 2f;
+
+    private Coroutine flashRoutine;
     private ColorAdjustments colorAdjustments;
 
     // The filter last confirmed with Apply (-1 = none yet). Close goes back to this.
@@ -61,6 +74,11 @@ public class FilterCarousel : MonoBehaviour
             colorAdjustments.active = true;
             colorAdjustments.colorFilter.overrideState = true;
         }
+
+        // Real looks: start with no look showing
+        if (filterVolume != null) filterVolume.weight = 0f;
+
+        if (flashNameLabel != null) flashNameLabel.gameObject.SetActive(false);
 
         // On scene start, make sure only the first filter icon is visible (no tint until the arrows are used)
         ShowCurrent(false);
@@ -109,11 +127,13 @@ public class FilterCarousel : MonoBehaviour
         if (appliedIndex >= 0)
         {
             ApplyColor(FilterColor(appliedIndex));
+            ApplyLook(appliedIndex);
         }
         else
         {
             // Nothing applied yet: back to no filter
             if (colorAdjustments != null) colorAdjustments.colorFilter.value = Color.white;
+            if (filterVolume != null) filterVolume.weight = 0f;
             for (int i = 0; i < previewRenderers.Length; i++)
             {
                 if (previewRenderers[i] != null) SetColor(previewRenderers[i].material, originalColors[i]);
@@ -137,7 +157,42 @@ public class FilterCarousel : MonoBehaviour
         }
 
         // Live preview while browsing
-        if (preview) ApplyColor(FilterColor(currentIndex));
+        if (preview)
+        {
+            ApplyColor(FilterColor(currentIndex));
+            ApplyLook(currentIndex);
+            FlashName();
+        }
+    }
+
+    private void FlashName()
+    {
+        if (flashNameLabel == null) return;
+        if (flashRoutine != null) StopCoroutine(flashRoutine);
+        flashRoutine = StartCoroutine(FlashNameRoutine());
+    }
+
+    // Shows the name, holds it, then fades it out over half a second
+    private IEnumerator FlashNameRoutine()
+    {
+        flashNameLabel.SetText(CurrentName());
+        flashNameLabel.gameObject.SetActive(true);
+        flashNameLabel.alpha = 1f;
+        yield return new WaitForSeconds(flashSeconds);
+        for (float t = 0f; t < 0.5f; t += Time.deltaTime)
+        {
+            flashNameLabel.alpha = 1f - t / 0.5f;
+            yield return null;
+        }
+        flashNameLabel.gameObject.SetActive(false);
+    }
+
+    // Swaps the filter volume to this filter's look. Without looks, the plain colour tint is used instead.
+    private void ApplyLook(int index)
+    {
+        if (filterVolume == null || filterLooks == null || index >= filterLooks.Length || filterLooks[index] == null) return;
+        filterVolume.sharedProfile = filterLooks[index];
+        filterVolume.weight = 1f;
     }
 
     // The filter's colour is the colour of its icon Image
@@ -150,7 +205,8 @@ public class FilterCarousel : MonoBehaviour
     // Tints the environment, the mirror overlay and the hands
     private void ApplyColor(Color filterColor)
     {
-        if (colorAdjustments != null)
+        bool usingLooks = filterVolume != null && filterLooks != null && filterLooks.Length > 0;
+        if (colorAdjustments != null && !usingLooks)
         {
             Color environmentColor = filterColor;
             environmentColor.a = 1f;
