@@ -5,6 +5,18 @@ using TMPro;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 
+// Extra scene changes for one filter, e.g. "Stars": swap the sky and hide the walls
+[System.Serializable]
+public class FilterScene
+{
+    [Tooltip("Sky to switch to for this filter, e.g. a stars skybox. Leave empty to keep the normal sky.")]
+    public Material skybox;
+    [Tooltip("Objects that appear only with this filter, e.g. star particles")]
+    public GameObject[] show;
+    [Tooltip("Objects made invisible while this filter is on, e.g. the walls. Their colliders stay, so they still block the player.")]
+    public GameObject[] hide;
+}
+
 public class FilterCarousel : MonoBehaviour
 {
     // Filter icon GameObject array cycles through carousel, only one icon is visible at a time
@@ -34,6 +46,11 @@ public class FilterCarousel : MonoBehaviour
     [Tooltip("One Volume Profile per filter, in the same order as the icons. Each can use any effects: Split Toning, Color Adjustments, Vignette...")]
     public VolumeProfile[] filterLooks;
 
+    [Tooltip("Optional, one per filter in the same order as the icons: sky and objects to swap (leave an entry empty for filters that only change colour)")]
+    public FilterScene[] filterScenes;
+
+    private Material defaultSkybox;
+
     [Tooltip("Big centred name that pops up when you switch filter, then fades away (like Instagram)")]
     public TMP_Text flashNameLabel;
     public float flashSeconds = 2f;
@@ -41,7 +58,7 @@ public class FilterCarousel : MonoBehaviour
     private Coroutine flashRoutine;
     private ColorAdjustments colorAdjustments;
 
-    // The filter last confirmed with Apply (-1 = none yet). Close goes back to this.
+    // The filter last confirmed with Apply (-1 = none). Close clears it.
     private int appliedIndex = -1;
 
     // Each preview renderer's colour before any filter, for going back to "no filter"
@@ -79,6 +96,10 @@ public class FilterCarousel : MonoBehaviour
         if (filterVolume != null) filterVolume.weight = 0f;
 
         if (flashNameLabel != null) flashNameLabel.gameObject.SetActive(false);
+        // Nothing is applied yet, so the applied label starts empty
+        if (appliedLabel != null) appliedLabel.SetText("");
+        defaultSkybox = RenderSettings.skybox;
+        ApplyScene(-1);
 
         // On scene start, make sure only the first filter icon is visible (no tint until the arrows are used)
         ShowCurrent(false);
@@ -121,25 +142,19 @@ public class FilterCarousel : MonoBehaviour
         if (appliedLabel != null) appliedLabel.SetText("Applied: " + CurrentName());
     }
 
-    // Wire the Close button to this. Anything previewed but not applied is undone, then the panel hides.
+    // Wire the Close button to this. Turns the filter off and goes back to the original room.
     public void ClosePanel()
     {
-        if (appliedIndex >= 0)
+        // Back to the original room. The panel stays on the mirror so a filter can be picked again.
+        appliedIndex = -1;
+        if (appliedLabel != null) appliedLabel.SetText("");
+        if (colorAdjustments != null) colorAdjustments.colorFilter.value = Color.white;
+        if (filterVolume != null) filterVolume.weight = 0f;
+        ApplyScene(-1);
+        for (int i = 0; i < previewRenderers.Length; i++)
         {
-            ApplyColor(FilterColor(appliedIndex));
-            ApplyLook(appliedIndex);
+            if (previewRenderers[i] != null) SetColor(previewRenderers[i].material, originalColors[i]);
         }
-        else
-        {
-            // Nothing applied yet: back to no filter
-            if (colorAdjustments != null) colorAdjustments.colorFilter.value = Color.white;
-            if (filterVolume != null) filterVolume.weight = 0f;
-            for (int i = 0; i < previewRenderers.Length; i++)
-            {
-                if (previewRenderers[i] != null) SetColor(previewRenderers[i].material, originalColors[i]);
-            }
-        }
-        gameObject.SetActive(false);
     }
 
     // Shows only the icon at currentIndex, hides all others, and updates the label and preview
@@ -161,8 +176,44 @@ public class FilterCarousel : MonoBehaviour
         {
             ApplyColor(FilterColor(currentIndex));
             ApplyLook(currentIndex);
+            ApplyScene(currentIndex);
             FlashName();
         }
+    }
+
+    // Undoes every filter's sky and object changes, then applies this one's (-1 = none)
+    private void ApplyScene(int index)
+    {
+        if (filterScenes == null || filterScenes.Length == 0) return;
+
+        foreach (var fs in filterScenes)
+        {
+            if (fs == null) continue;
+            if (fs.show != null) foreach (var go in fs.show) if (go != null) go.SetActive(false);
+            if (fs.hide != null) foreach (var go in fs.hide) SetVisible(go, true);
+        }
+
+        Material sky = defaultSkybox;
+        if (index >= 0 && index < filterScenes.Length && filterScenes[index] != null)
+        {
+            var fs = filterScenes[index];
+            if (fs.show != null) foreach (var go in fs.show) if (go != null) go.SetActive(true);
+            if (fs.hide != null) foreach (var go in fs.hide) SetVisible(go, false);
+            if (fs.skybox != null) sky = fs.skybox;
+        }
+
+        if (RenderSettings.skybox != sky)
+        {
+            RenderSettings.skybox = sky;
+            DynamicGI.UpdateEnvironment();
+        }
+    }
+
+    // Shows or hides an object's meshes but leaves its colliders on, so hidden walls still stop the player
+    private static void SetVisible(GameObject go, bool visible)
+    {
+        if (go == null) return;
+        foreach (var r in go.GetComponentsInChildren<Renderer>(true)) r.enabled = visible;
     }
 
     private void FlashName()
@@ -187,10 +238,16 @@ public class FilterCarousel : MonoBehaviour
         flashNameLabel.gameObject.SetActive(false);
     }
 
-    // Swaps the filter volume to this filter's look. Without looks, the plain colour tint is used instead.
+    // Swaps the filter volume to this filter's look. An empty slot (e.g. "Original") turns the look off.
     private void ApplyLook(int index)
     {
-        if (filterVolume == null || filterLooks == null || index >= filterLooks.Length || filterLooks[index] == null) return;
+        if (filterVolume == null || filterLooks == null || filterLooks.Length == 0) return;
+        if (index < 0 || index >= filterLooks.Length || filterLooks[index] == null)
+        {
+            // No look for this entry (e.g. "Original"): show the room as it is
+            filterVolume.weight = 0f;
+            return;
+        }
         filterVolume.sharedProfile = filterLooks[index];
         filterVolume.weight = 1f;
     }
