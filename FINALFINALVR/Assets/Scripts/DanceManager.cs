@@ -1,5 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Audio;
+using UnityEngine.Video;
 using TMPro;
 
 [System.Serializable]
@@ -12,20 +14,58 @@ public class DanceCue
     public Vector3 position;
 }
 
+// One song you can learn: its audio, an optional example video, and its bubbles
+[System.Serializable]
+public class DanceSong
+{
+    public string name = "Macarena";
+    public AudioClip clip;
+
+    [Tooltip("Optional: a video of someone doing this dance, played on the Example Video screen in time with the song")]
+    public VideoClip exampleVideo;
+
+    [Tooltip("Video time minus song time. If the dance in the video starts 2 s later than in your audio file, type 2.")]
+    public float videoOffset = 0f;
+
+    [Tooltip("Tempo in beats per minute, used by the Fill cues menu items")]
+    public float bpm = 103f;
+
+    [Tooltip("Song time, in seconds, of the first move. Find it by listening, then fine-tune with the Nudge buttons.")]
+    public float firstMove = 10f;
+
+    [Tooltip("How many times through the routine the Fill cues menu item writes")]
+    public int rounds = 3;
+
+    public DanceCue[] cues;
+}
+
 // Runs Learn a Dance: plays the song, spawns a bubble for each cue, keeps score,
 // and has three stages: Practice (0.5x), Full speed, and Mastery (bubbles fade, then disappear).
 public class DanceManager : MonoBehaviour
 {
     public enum Stage { Practice, FullSpeed, Mastery }
 
-    [Header("Song and bubbles")]
+    [Header("Songs and bubbles")]
     public AudioSource music;
     public DanceBubble bubblePrefab;
 
     [Tooltip("Where the dancer stands, facing the mirror. Bubble positions are relative to this.")]
     public Transform danceSpot;
 
-    public DanceCue[] cues;
+    [Tooltip("Element 0 = Macarena, Element 1 = YMCA chorus. Right-click the component to fill their cues.")]
+    public DanceSong[] songs;
+
+    [Header("Example video (optional)")]
+    [Tooltip("The Video Player on the Example Video screen beside the mirror")]
+    public VideoPlayer exampleVideo;
+
+    [Tooltip("Shown only while a dance is playing, e.g. the Example Video screen")]
+    public GameObject exampleScreen;
+
+    [Header("Practice speed (optional)")]
+    [Tooltip("An Audio Mixer whose group has a Pitch Shifter with its Pitch exposed. Keeps the song's pitch normal at 0.5x.")]
+    public AudioMixer practiceMixer;
+    public string pitchParameter = "PracticePitch";
 
     [Header("Timing (seconds of song time)")]
     [Tooltip("How early the approach glow appears before a bubble is due")]
@@ -46,17 +86,9 @@ public class DanceManager : MonoBehaviour
     [Tooltip("Cue heights are written for someone about 1.6 m tall. Tick to scale them to the player's real head height.")]
     public bool scaleToPlayerHeight = true;
 
-    [Header("Macarena cue generator (right-click the component > Fill with Macarena cues)")]
-    [Tooltip("Tempo of your Macarena file. The common versions are about 103 BPM.")]
-    public float macarenaBpm = 103f;
-
-    [Tooltip("Song time, in seconds, of the first move (right arm out). Find it by listening, then fine-tune with the Nudge buttons.")]
-    public float macarenaFirstMove = 10f;
-
-    [Tooltip("How many times through the 16-count routine (12 bubbles each)")]
-    public int macarenaRounds = 3;
-
     [Header("UI (optional)")]
+    [Tooltip("Shows which song is selected")]
+    public TMP_Text songText;
     public TMP_Text scoreText;
     public TMP_Text stageText;
     public TMP_Text historyText;
@@ -73,6 +105,8 @@ public class DanceManager : MonoBehaviour
 
     private Stage stage;
     private bool playing;
+    private int songIndex;
+    private DanceCue[] cues;
     private int nextCue;
     private int hits;
     private int misses;
@@ -83,8 +117,23 @@ public class DanceManager : MonoBehaviour
 
     private void Start()
     {
-        UpdateScore();
+        if (exampleScreen != null) exampleScreen.SetActive(false);
+        SelectSong(0);
         if (stageText != null) stageText.SetText("Pick a stage to start");
+    }
+
+    // Wire the song buttons' On Click () to this, with 0 for Macarena and 1 for YMCA
+    public void SelectSong(int index)
+    {
+        if (songs == null || index < 0 || index >= songs.Length) return;
+        if (playing) StopDance();
+        songIndex = index;
+        DanceSong song = songs[index];
+        cues = song.cues;
+        if (song.clip != null) music.clip = song.clip;
+        if (exampleVideo != null) exampleVideo.clip = song.exampleVideo;
+        if (songText != null) songText.SetText(song.name);
+        UpdateScore();
     }
 
     // Wire the three stage buttons' On Click () to these
@@ -97,6 +146,7 @@ public class DanceManager : MonoBehaviour
     {
         playing = false;
         music.Stop();
+        StopVideo();
         ClearBubbles();
         if (stageText != null) stageText.SetText("Stopped");
     }
@@ -105,7 +155,7 @@ public class DanceManager : MonoBehaviour
     {
         if (cues == null || cues.Length == 0)
         {
-            Debug.LogWarning("DanceManager has no cues. Right-click the component and choose 'Fill with test cues', or add your own.");
+            Debug.LogWarning("This song has no cues. Right-click the Dance Manager component and choose a Fill cues item.");
             return;
         }
 
@@ -125,8 +175,11 @@ public class DanceManager : MonoBehaviour
         playing = true;
 
         music.pitch = stage == Stage.Practice ? 0.5f : 1f;
+        // Pitch Shifter undoes the deeper sound of half speed (0.5 x 2 = normal pitch)
+        if (practiceMixer != null) practiceMixer.SetFloat(pitchParameter, 1f / music.pitch);
         music.time = Mathf.Max(0f, cues[0].time + timingOffset - secondsBeforeFirstBubble);
         music.Play();
+        StartVideo();
 
         if (stageText != null) stageText.SetText(StageName());
         UpdateScore();
@@ -145,6 +198,35 @@ public class DanceManager : MonoBehaviour
         }
 
         if (hits + misses >= cues.Length) Finish();
+        else KeepVideoInTime();
+    }
+
+    private void StartVideo()
+    {
+        if (exampleVideo == null || exampleVideo.clip == null) return;
+        if (exampleScreen != null) exampleScreen.SetActive(true);
+        exampleVideo.audioOutputMode = VideoAudioOutputMode.None; // the song comes from Music
+        exampleVideo.playbackSpeed = music.pitch;
+        exampleVideo.time = VideoTimeNow();
+        exampleVideo.Play();
+    }
+
+    private void StopVideo()
+    {
+        if (exampleVideo != null) exampleVideo.Stop();
+        if (exampleScreen != null) exampleScreen.SetActive(false);
+    }
+
+    // The video and the song drift apart slowly, so jump the video back in line if it's off by more than 0.2 s
+    private void KeepVideoInTime()
+    {
+        if (exampleVideo == null || !exampleVideo.isPlaying) return;
+        if (Mathf.Abs((float)exampleVideo.time - VideoTimeNow()) > 0.2f) exampleVideo.time = VideoTimeNow();
+    }
+
+    private float VideoTimeNow()
+    {
+        return Mathf.Max(0f, music.time + songs[songIndex].videoOffset);
     }
 
     private void Spawn(int index)
@@ -197,10 +279,11 @@ public class DanceManager : MonoBehaviour
     {
         playing = false;
         music.Stop();
+        StopVideo();
         attempt++;
 
         int percent = Mathf.RoundToInt(100f * hits / cues.Length);
-        string line = "Attempt " + attempt + " (" + StageName() + "): " + hits + "/" + cues.Length + " (" + percent + "%)";
+        string line = "Attempt " + attempt + " (" + songs[songIndex].name + ", " + StageName() + "): " + hits + "/" + cues.Length + " (" + percent + "%)";
         history.Add(line);
         Debug.Log(line); // also visible in Android Logcat, handy for your log sheet
 
@@ -238,32 +321,10 @@ public class DanceManager : MonoBehaviour
         }
     }
 
-    // Right-click the component in the Inspector to fill in 28 placeholder cues, 2 seconds apart,
-    // alternating high/low and left/right. Replace them with your real timings and positions.
-    [ContextMenu("Fill with test cues")]
-    private void FillTestCues()
-    {
-        Vector3[] spots =
-        {
-            new Vector3(-0.4f, 1.5f, 0.45f),
-            new Vector3(0.4f, 1.5f, 0.45f),
-            new Vector3(-0.5f, 1.0f, 0.4f),
-            new Vector3(0.5f, 1.0f, 0.4f),
-        };
-        cues = new DanceCue[28];
-        for (int i = 0; i < cues.Length; i++)
-        {
-            cues[i] = new DanceCue { time = 2f + i * 2f, position = spots[i % spots.Length] };
-        }
-#if UNITY_EDITOR
-        UnityEditor.EditorUtility.SetDirty(this);
-#endif
-    }
-
-    // Right-click the component > Fill with Macarena cues. One round is 16 beats: 12 hand moves
+    // Right-click the component > Fill Macarena cues (song 0). One round is 16 beats: 12 hand moves
     // (one per beat), then the hip sway and jump, which have no bubbles. Positions are where the moving
     // hand ends up, relative to the Dance Spot (x = right, y = up, z = toward the mirror), for a 1.6 m person.
-    [ContextMenu("Fill with Macarena cues")]
+    [ContextMenu("Fill Macarena cues (song 0)")]
     private void FillMacarenaCues()
     {
         Vector3[] moves =
@@ -282,17 +343,59 @@ public class DanceManager : MonoBehaviour
             new Vector3(-0.28f, 0.95f, 0.00f), // 12 left hand to left back pocket
         };
 
-        float beat = 60f / macarenaBpm;
-        int rounds = Mathf.Max(1, macarenaRounds);
-        cues = new DanceCue[rounds * moves.Length];
+        DanceSong song = EnsureSong(0, "Macarena", 103f, 3);
+        float beat = 60f / song.bpm;
+        int rounds = Mathf.Max(1, song.rounds);
+        song.cues = new DanceCue[rounds * moves.Length];
         for (int r = 0; r < rounds; r++)
         {
             for (int m = 0; m < moves.Length; m++)
             {
-                float time = macarenaFirstMove + (r * 16 + m) * beat;
-                cues[r * moves.Length + m] = new DanceCue { time = time, position = moves[m] };
+                float time = song.firstMove + (r * 16 + m) * beat;
+                song.cues[r * moves.Length + m] = new DanceCue { time = time, position = moves[m] };
             }
         }
+        MarkDirty();
+    }
+
+    // Right-click the component > Fill YMCA chorus cues (song 1). Each "Y-M-C-A" is four letters, one beat apart,
+    // and comes round every 16 beats. Two-handed letters get a bubble for each hand at the same moment.
+    [ContextMenu("Fill YMCA chorus cues (song 1)")]
+    private void FillYmcaCues()
+    {
+        Vector3[][] letters =
+        {
+            new[] { new Vector3( 0.35f, 1.95f, 0.25f), new Vector3(-0.35f, 1.95f, 0.25f) }, // Y  both arms up and out
+            new[] { new Vector3( 0.12f, 1.78f, 0.10f), new Vector3(-0.12f, 1.78f, 0.10f) }, // M  fingertips on top of head
+            new[] { new Vector3(-0.05f, 1.90f, 0.30f), new Vector3(-0.40f, 1.30f, 0.30f) }, // C  both arms curve to the left
+            new[] { new Vector3( 0.00f, 2.00f, 0.20f) },                                    // A  hands meet above head
+        };
+
+        DanceSong song = EnsureSong(1, "YMCA", 127f, 4);
+        float beat = 60f / song.bpm;
+        var list = new List<DanceCue>();
+        for (int r = 0; r < Mathf.Max(1, song.rounds); r++)
+        {
+            for (int l = 0; l < letters.Length; l++)
+            {
+                float time = song.firstMove + (r * 16 + l) * beat;
+                foreach (var pos in letters[l]) list.Add(new DanceCue { time = time, position = pos });
+            }
+        }
+        song.cues = list.ToArray();
+        MarkDirty();
+    }
+
+    private DanceSong EnsureSong(int index, string name, float bpm, int rounds)
+    {
+        if (songs == null || songs.Length <= index) System.Array.Resize(ref songs, index + 1);
+        if (songs[index] == null) songs[index] = new DanceSong { name = name, bpm = bpm, rounds = rounds };
+        if (string.IsNullOrEmpty(songs[index].name)) songs[index].name = name;
+        return songs[index];
+    }
+
+    private void MarkDirty()
+    {
 #if UNITY_EDITOR
         UnityEditor.EditorUtility.SetDirty(this);
 #endif

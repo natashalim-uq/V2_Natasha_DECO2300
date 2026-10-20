@@ -27,6 +27,9 @@ public class RecordToggle : MonoBehaviour
     [Tooltip("Optional: shown only while recording, e.g. the Viewfinder screen")]
     public GameObject showWhileRecording;
 
+    [Tooltip("Optional: a song that plays from the start while recording, and stops when recording stops")]
+    public AudioSource songWhileRecording;
+
     public Color idleColor = Color.white;
     public Color recordingColor = new Color(0.9f, 0.15f, 0.15f);
 
@@ -56,6 +59,7 @@ public class RecordToggle : MonoBehaviour
             if (buttonImage != null) buttonImage.color = recordingColor;
             if (audioSource != null && startSound != null) audioSource.PlayOneShot(startSound);
             if (showWhileRecording != null) showWhileRecording.SetActive(true);
+            if (songWhileRecording != null) { songWhileRecording.time = 0f; songWhileRecording.Play(); }
             if (recorder != null) recorder.StartRecording();
         }
         else
@@ -71,6 +75,7 @@ public class RecordToggle : MonoBehaviour
             if (buttonImage != null) buttonImage.color = idleColor;
             if (recordingDot != null) recordingDot.SetActive(false);
             if (showWhileRecording != null) showWhileRecording.SetActive(false);
+            if (songWhileRecording != null) songWhileRecording.Stop();
             if (audioSource != null && stopSound != null) audioSource.PlayOneShot(stopSound);
         }
     }
