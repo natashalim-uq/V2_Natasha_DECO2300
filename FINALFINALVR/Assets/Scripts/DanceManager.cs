@@ -63,9 +63,8 @@ public class DanceManager : MonoBehaviour
     public GameObject exampleScreen;
 
     [Header("Practice speed (optional)")]
-    [Tooltip("An Audio Mixer whose group has a Pitch Shifter with its Pitch exposed. Keeps the song's pitch normal at 0.5x.")]
-    public AudioMixer practiceMixer;
-    public string pitchParameter = "PracticePitch";
+    [Tooltip("An Audio Mixer group with a Pitch Shifter set to 200%. Practice plays through it, so the song keeps its normal pitch at 0.5x.")]
+    public AudioMixerGroup practiceGroup;
 
     [Header("Timing (seconds of song time)")]
     [Tooltip("How early the approach glow appears before a bubble is due")]
@@ -175,8 +174,8 @@ public class DanceManager : MonoBehaviour
         playing = true;
 
         music.pitch = stage == Stage.Practice ? 0.5f : 1f;
-        // Pitch Shifter undoes the deeper sound of half speed (0.5 x 2 = normal pitch)
-        if (practiceMixer != null) practiceMixer.SetFloat(pitchParameter, 1f / music.pitch);
+        // Practice goes through the Pitch Shifter group, which undoes the deeper sound of half speed (0.5 x 2 = normal pitch)
+        if (practiceGroup != null) music.outputAudioMixerGroup = stage == Stage.Practice ? practiceGroup : null;
         music.time = Mathf.Max(0f, cues[0].time + timingOffset - secondsBeforeFirstBubble);
         music.Play();
         StartVideo();
