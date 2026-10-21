@@ -34,7 +34,7 @@ public static class DancePanelBuilder
         // Small button canvas beside the Dance Spot, within arm's reach
         Transform spot = dm.danceSpot != null ? dm.danceSpot : GameObject.Find("Dance Spot")?.transform;
         Transform existing = task.transform.Find("Canvas - Dance Buttons");
-        GameObject panel = existing != null ? existing.gameObject : new GameObject("Canvas - Dance Buttons", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(TrackedDeviceGraphicRaycaster));
+        GameObject panel = existing != null ? existing.gameObject : new GameObject("Canvas - Dance Buttons", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster), typeof(TrackedDeviceGraphicRaycaster));
         if (existing == null)
         {
             Undo.RegisterCreatedObjectUndo(panel, "Build Dance Panel");

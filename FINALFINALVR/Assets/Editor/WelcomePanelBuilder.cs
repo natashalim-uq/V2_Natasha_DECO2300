@@ -24,22 +24,21 @@ public static class WelcomePanelBuilder
         GameObject panel = GameObject.Find("Canvas - Welcome");
         if (panel == null)
         {
-            panel = new GameObject("Canvas - Welcome", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(TrackedDeviceGraphicRaycaster));
+            panel = new GameObject("Canvas - Welcome", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster), typeof(TrackedDeviceGraphicRaycaster));
             Undo.RegisterCreatedObjectUndo(panel, "Build Welcome Panel");
         }
         var canvas = panel.GetComponent<Canvas>();
         canvas.renderMode = RenderMode.WorldSpace;
         XROrigin origin = Object.FindFirstObjectByType<XROrigin>();
         if (origin != null && origin.Camera != null) canvas.worldCamera = origin.Camera;
-        var gr = panel.GetComponent<GraphicRaycaster>();
-        if (gr != null && !(gr is TrackedDeviceGraphicRaycaster)) Undo.DestroyObjectImmediate(gr);
+        if (panel.GetComponent<GraphicRaycaster>() == null) panel.AddComponent<GraphicRaycaster>();
         if (panel.GetComponent<TrackedDeviceGraphicRaycaster>() == null) panel.AddComponent<TrackedDeviceGraphicRaycaster>();
 
         var prt = (RectTransform)panel.transform;
         Undo.RecordObject(prt, "Build Welcome Panel");
-        prt.position = new Vector3(0f, 1.35f, -0.35f);
+        prt.position = new Vector3(0f, 1.4f, 0.3f);
         prt.rotation = Quaternion.identity;
-        prt.localScale = Vector3.one * 0.001f;
+        prt.localScale = Vector3.one * 0.0015f;   // about 1.1 m from the start: far enough for a controller's ray, big enough to read
         prt.sizeDelta = new Vector2(600, 460);
 
         var bg = Child(panel.transform, "Background", typeof(Image)).GetComponent<Image>();

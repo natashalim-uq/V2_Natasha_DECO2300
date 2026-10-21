@@ -46,7 +46,7 @@ public static class GoToPanelBuilder
 
         // Panel on the XR Origin, at your front right
         Transform existing = origin.transform.Find("Canvas - Go To");
-        GameObject panel = existing != null ? existing.gameObject : new GameObject("Canvas - Go To", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(TrackedDeviceGraphicRaycaster), typeof(StationJump));
+        GameObject panel = existing != null ? existing.gameObject : new GameObject("Canvas - Go To", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster), typeof(TrackedDeviceGraphicRaycaster), typeof(StationJump));
         if (existing == null)
         {
             Undo.RegisterCreatedObjectUndo(panel, "Build Go To Panel");
@@ -56,8 +56,8 @@ public static class GoToPanelBuilder
         canvas.renderMode = RenderMode.WorldSpace;
         if (origin.Camera != null) canvas.worldCamera = origin.Camera;
         var prt = (RectTransform)panel.transform;
-        prt.localPosition = new Vector3(0.3f, 0.95f, 0.3f);
-        prt.localRotation = Quaternion.Euler(30f, 30f, 0f);
+        prt.localPosition = new Vector3(0.4f, 1.05f, 0.55f);
+        prt.localRotation = Quaternion.Euler(20f, 35f, 0f);
         prt.localScale = Vector3.one * 0.001f;
         prt.sizeDelta = new Vector2(300, 260);
 

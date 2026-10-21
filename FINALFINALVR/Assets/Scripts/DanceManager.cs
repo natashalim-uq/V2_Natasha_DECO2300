@@ -36,6 +36,9 @@ public class DanceSong
     [Tooltip("How many times through the routine the Fill cues menu item writes")]
     public int rounds = 3;
 
+    [Tooltip("Optional: the exact time (in seconds) each round starts. Leave empty to space rounds evenly every 16 beats from First Move.")]
+    public float[] roundStarts;
+
     public DanceCue[] cues;
 }
 
@@ -111,6 +114,7 @@ public class DanceManager : MonoBehaviour
     private int misses;
     private int attempt;
     private float heightScale = 1f;
+    private float nextVideoCheck;
     private readonly List<DanceBubble> activeBubbles = new List<DanceBubble>();
     private readonly List<string> history = new List<string>();
 
@@ -208,6 +212,7 @@ public class DanceManager : MonoBehaviour
         exampleVideo.playbackSpeed = music.pitch;
         exampleVideo.time = VideoTimeNow();
         exampleVideo.Play();
+        nextVideoCheck = Time.time + 1f;
     }
 
     private void StopVideo()
@@ -219,8 +224,10 @@ public class DanceManager : MonoBehaviour
     // The video and the song drift apart slowly, so jump the video back in line if it's off by more than 0.2 s
     private void KeepVideoInTime()
     {
-        if (exampleVideo == null || !exampleVideo.isPlaying) return;
-        if (Mathf.Abs((float)exampleVideo.time - VideoTimeNow()) > 0.2f) exampleVideo.time = VideoTimeNow();
+        // Jumping takes the video a moment, so check at most once a second; checking every frame kept it black
+        if (exampleVideo == null || !exampleVideo.isPrepared || !exampleVideo.isPlaying || Time.time < nextVideoCheck) return;
+        nextVideoCheck = Time.time + 1f;
+        if (Mathf.Abs((float)exampleVideo.time - VideoTimeNow()) > 0.3f) exampleVideo.time = VideoTimeNow();
     }
 
     private float VideoTimeNow()
@@ -371,13 +378,16 @@ public class DanceManager : MonoBehaviour
         };
 
         DanceSong song = EnsureSong(1, "YMCA", 127f, 4);
+        // Where "Y-M-C-A" is sung in the clip: 0:14, 0:17, 0:29, 0:32
+        if (song.roundStarts == null || song.roundStarts.Length == 0) song.roundStarts = new[] { 14f, 17f, 29f, 32f };
         float beat = 60f / song.bpm;
         var list = new List<DanceCue>();
-        for (int r = 0; r < Mathf.Max(1, song.rounds); r++)
+        int rounds = song.roundStarts.Length;
+        for (int r = 0; r < rounds; r++)
         {
             for (int l = 0; l < letters.Length; l++)
             {
-                float time = song.firstMove + (r * 16 + l) * beat;
+                float time = song.roundStarts[r] + l * beat;
                 foreach (var pos in letters[l]) list.Add(new DanceCue { time = time, position = pos });
             }
         }
