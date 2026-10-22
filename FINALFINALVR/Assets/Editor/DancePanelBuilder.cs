@@ -9,6 +9,10 @@ using TMPro;
 
 // Tools > Build Dance Panel: finishes Canvas - Dance (texts) and builds Canvas - Dance Buttons
 // beside the Dance Spot, with the eight buttons wired to Dance Manager.
+// WHY: the buttons are placed beside the Dance Spot at about waist-to-chest height and angled toward the
+// player, so they can be pressed without walking away from the spot (ergonomics / button placement).
+// Building it in code means the eight buttons are evenly laid out and correctly wired every time.
+// (Editor-only helper, run from the Tools menu.)
 public static class DancePanelBuilder
 {
     [MenuItem("Tools/Build Dance Panel")]
@@ -20,6 +24,7 @@ public static class DancePanelBuilder
         Undo.RecordObject(dm, "Build Dance Panel");
 
         // Texts on the big wall canvas
+        // Sizes are fractions of the board's own size (h * 0.3 etc.), so it works whatever size the board is
         GameObject board = GameObject.Find("Canvas - Dance");
         if (board != null)
         {
@@ -34,6 +39,7 @@ public static class DancePanelBuilder
         // Small button canvas beside the Dance Spot, within arm's reach
         Transform spot = dm.danceSpot != null ? dm.danceSpot : GameObject.Find("Dance Spot")?.transform;
         Transform existing = task.transform.Find("Canvas - Dance Buttons");
+        // Reuse the panel if it exists, otherwise make a new one with everything a VR-clickable canvas needs
         GameObject panel = existing != null ? existing.gameObject : new GameObject("Canvas - Dance Buttons", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster), typeof(TrackedDeviceGraphicRaycaster));
         if (existing == null)
         {
@@ -41,32 +47,39 @@ public static class DancePanelBuilder
             panel.transform.SetParent(task.transform, false);
         }
         var canvas = panel.GetComponent<Canvas>();
-        canvas.renderMode = RenderMode.WorldSpace;
+        canvas.renderMode = RenderMode.WorldSpace;   // floats in the room instead of being stuck to the screen
         if (Camera.main != null) canvas.worldCamera = Camera.main;
         var prt = (RectTransform)panel.transform;
         prt.sizeDelta = new Vector2(360, 230);
-        prt.localScale = Vector3.one * 0.001f;
+        prt.localScale = Vector3.one * 0.001f;   // 1 canvas unit = 1 mm, so the panel is 36 x 23 cm
         if (spot != null)
         {
+            // 60 cm to the right, 25 cm forward, 1.1 m up from the Dance Spot
             Vector3 pos = spot.position + spot.right * 0.6f + spot.forward * 0.25f + Vector3.up * 1.1f;
-            Vector3 eye = spot.position + Vector3.up * 1.5f;
+            Vector3 eye = spot.position + Vector3.up * 1.5f;   // roughly where the player's eyes are
             prt.position = pos;
+            // Turn the panel to face away from the eyes, which is how a world canvas reads correctly
             prt.rotation = Quaternion.LookRotation(pos - eye, Vector3.up);
         }
 
         // Background so the buttons are easy to see
         var bg = panel.GetComponent<Image>();
         if (bg == null) bg = panel.AddComponent<Image>();
-        bg.sprite = AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/UISprite.psd");
-        bg.type = Image.Type.Sliced;
+        bg.sprite = AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/UISprite.psd");   // Unity's rounded box
+        bg.type = Image.Type.Sliced;   // stretch the middle, keep the corners round
         bg.color = new Color(0.1f, 0.1f, 0.15f, 0.85f);
 
+        // Colour groups so the buttons are easy to tell apart: purple = pick a song, green = start a stage,
+        // red = stop, grey = small timing adjustments
         Color pick = new Color(0.75f, 0.65f, 1f), go = new Color(0.55f, 0.85f, 0.6f), stop = new Color(1f, 0.55f, 0.55f), small = new Color(0.85f, 0.85f, 0.85f);
+        // Row 1: songs (these pass a number, 0 or 1, to SelectSong)
         AddIntButton(panel.transform, "Macarena", -85, 80, 160, 50, pick, dm.SelectSong, 0);
         AddIntButton(panel.transform, "YMCA", 85, 80, 160, 50, pick, dm.SelectSong, 1);
+        // Row 2: stages
         AddButton(panel.transform, "Practice (0.5x)", -115, 15, 105, 50, go, dm.StartPractice);
         AddButton(panel.transform, "Full speed", 0, 15, 105, 50, go, dm.StartFullSpeed);
         AddButton(panel.transform, "Mastery", 115, 15, 105, 50, go, dm.StartMastery);
+        // Row 3: stop and timing nudges
         AddButton(panel.transform, "Stop", -115, -60, 105, 50, stop, dm.StopDance);
         AddButton(panel.transform, "Earlier", 0, -60, 105, 50, small, dm.NudgeEarlier);
         AddButton(panel.transform, "Later", 115, -60, 105, 50, small, dm.NudgeLater);
@@ -77,6 +90,8 @@ public static class DancePanelBuilder
         Debug.Log("Build Dance Panel: done. Move 'Canvas - Dance Buttons' if you'd like it elsewhere, then press Cmd+S.");
     }
 
+    // Finds or creates a text on the board. place = true moves an existing text into position too;
+    // false only positions it if it's new (so texts I'd already arranged by hand aren't moved).
     static TMP_Text MakeText(Transform parent, string name, float x, float y, float w, float h, float size, bool place)
     {
         Transform t = parent.Find(name);
@@ -105,6 +120,8 @@ public static class DancePanelBuilder
         return tmp;
     }
 
+    // Finds or creates one button (a coloured Image + Button + a text label), places it, and clears
+    // its old On Click () listeners so they can be set fresh
     static Button MakeButton(Transform parent, string label, float x, float y, float w, float h, Color color)
     {
         string name = label + " btn";
@@ -119,9 +136,10 @@ public static class DancePanelBuilder
             var txt = new GameObject("Text (TMP)", typeof(RectTransform), typeof(TextMeshProUGUI));
             txt.transform.SetParent(go.transform, false);
             var trt = (RectTransform)txt.transform;
+            // Stretch the label to fill the whole button
             trt.anchorMin = Vector2.zero; trt.anchorMax = Vector2.one; trt.offsetMin = trt.offsetMax = Vector2.zero;
             var tmp = txt.GetComponent<TextMeshProUGUI>();
-            tmp.text = label; tmp.fontSize = 18; tmp.color = new Color(0.1f, 0.1f, 0.1f);
+            tmp.text = label; tmp.fontSize = 18; tmp.color = new Color(0.1f, 0.1f, 0.1f);   // dark text on light buttons for contrast
             tmp.alignment = TextAlignmentOptions.Center;
         }
         Place(go.transform, x, y, w, h);
@@ -130,10 +148,12 @@ public static class DancePanelBuilder
         img.type = Image.Type.Sliced;
         img.color = color;
         var b = go.GetComponent<Button>();
+        // Remove old listeners (counting backwards so removing one doesn't skip the next)
         for (int i = b.onClick.GetPersistentEventCount() - 1; i >= 0; i--) UnityEventTools.RemovePersistentListener(b.onClick, i);
         return b;
     }
 
+    // A button that calls a method with no value, e.g. StartPractice()
     static void AddButton(Transform parent, string label, float x, float y, float w, float h, Color color, UnityAction call)
     {
         var b = MakeButton(parent, label, x, y, w, h, color);
@@ -141,6 +161,7 @@ public static class DancePanelBuilder
         EditorUtility.SetDirty(b);
     }
 
+    // A button that calls a method with a number, e.g. SelectSong(1)
     static void AddIntButton(Transform parent, string label, float x, float y, float w, float h, Color color, UnityAction<int> call, int value)
     {
         var b = MakeButton(parent, label, x, y, w, h, color);
@@ -148,6 +169,7 @@ public static class DancePanelBuilder
         EditorUtility.SetDirty(b);
     }
 
+    // Puts a UI element at (x, y) from the panel's centre, with size w x h
     static void Place(Transform t, float x, float y, float w, float h)
     {
         var rt = (RectTransform)t;

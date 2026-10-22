@@ -6,6 +6,7 @@ using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 
 // Extra scene changes for one filter, e.g. "Stars": swap the sky and hide the walls
+// [System.Serializable] so it shows up (and saves) in the Inspector as a little group of fields
 [System.Serializable]
 public class FilterScene
 {
@@ -17,6 +18,15 @@ public class FilterScene
     public GameObject[] hide;
 }
 
+// The filter panel on the mirror: < and > browse filters like Instagram's carousel, Apply confirms one,
+// Close goes back to the normal room. While browsing, the whole room changes so you see a live preview.
+// WHY: Design Evaluation 1 asked for a live preview and clearer Apply/Close buttons; Design Evaluation 2
+// said it was unclear which filter was selected and wanted the filter on the whole environment
+// (and on yourself), so there's a name label, a big name flash, and the hands are tinted too.
+// The script uses several layers, each optional (if a field is empty that layer is skipped):
+//   1. Simple tint: one colour over everything (Color Adjustments on the main Global Volume)
+//   2. Real looks: a full Volume Profile per filter (Split Toning, Vignette...) like real Instagram filters
+//   3. Scene changes: swap the sky / show or hide objects (Stars, Water)
 public class FilterCarousel : MonoBehaviour
 {
     // Filter icon GameObject array cycles through carousel, only one icon is visible at a time
@@ -49,13 +59,16 @@ public class FilterCarousel : MonoBehaviour
     [Tooltip("Optional, one per filter in the same order as the icons: sky and objects to swap (leave an entry empty for filters that only change colour)")]
     public FilterScene[] filterScenes;
 
+    // The normal sky, remembered at the start so it can be put back
     private Material defaultSkybox;
 
     [Tooltip("Big centred name that pops up when you switch filter, then fades away (like Instagram)")]
     public TMP_Text flashNameLabel;
     public float flashSeconds = 2f;
 
+    // The running fade animation, kept so it can be restarted if you switch filter again quickly
     private Coroutine flashRoutine;
+    // The colour-tint effect inside the main Global Volume
     private ColorAdjustments colorAdjustments;
 
     // The filter last confirmed with Apply (-1 = none). Close clears it.
@@ -72,6 +85,7 @@ public class FilterCarousel : MonoBehaviour
 
     private void Start()
     {
+        // Remember the original colour of everything that gets tinted, so Close can undo it
         previewAlphas = new float[previewRenderers.Length];
         originalColors = new Color[previewRenderers.Length];
         for (int i = 0; i < previewRenderers.Length; i++)
@@ -83,23 +97,26 @@ public class FilterCarousel : MonoBehaviour
         if (environmentVolume != null)
         {
             // Use the volume's Color Adjustments, adding one if it doesn't have it yet
+            // (TryGet returns true and fills colorAdjustments if it's found)
             VolumeProfile profile = environmentVolume.profile;
             if (!profile.TryGet(out colorAdjustments))
             {
                 colorAdjustments = profile.Add<ColorAdjustments>(true);
             }
             colorAdjustments.active = true;
+            // "overrideState = true" means: this volume controls the Color Filter setting
             colorAdjustments.colorFilter.overrideState = true;
         }
 
         // Real looks: start with no look showing
+        // (weight 0 = the volume has no effect, 1 = full effect)
         if (filterVolume != null) filterVolume.weight = 0f;
 
         if (flashNameLabel != null) flashNameLabel.gameObject.SetActive(false);
         // Nothing is applied yet, so the applied label starts empty
         if (appliedLabel != null) appliedLabel.SetText("");
         defaultSkybox = RenderSettings.skybox;
-        ApplyScene(-1);
+        ApplyScene(-1);   // -1 = no filter: normal sky, walls visible
 
         // On scene start, make sure only the first filter icon is visible (no tint until the arrows are used)
         ShowCurrent(false);
@@ -137,6 +154,7 @@ public class FilterCarousel : MonoBehaviour
     public void ConfirmSelection()
     {
         // Log name of the selected filter in the Console, and show it on the panel
+        // (The room already shows the filter from browsing, so Apply just confirms it and gives feedback)
         Debug.Log("Selected filter: " + CurrentName());
         appliedIndex = currentIndex;
         if (appliedLabel != null) appliedLabel.SetText("Applied: " + CurrentName());
@@ -148,9 +166,10 @@ public class FilterCarousel : MonoBehaviour
         // Back to the original room. The panel stays on the mirror so a filter can be picked again.
         appliedIndex = -1;
         if (appliedLabel != null) appliedLabel.SetText("");
-        if (colorAdjustments != null) colorAdjustments.colorFilter.value = Color.white;
+        if (colorAdjustments != null) colorAdjustments.colorFilter.value = Color.white;   // white = no tint
         if (filterVolume != null) filterVolume.weight = 0f;
         ApplyScene(-1);
+        // Put the hands and mirror overlay back to their own colours
         for (int i = 0; i < previewRenderers.Length; i++)
         {
             if (previewRenderers[i] != null) SetColor(previewRenderers[i].material, originalColors[i]);
@@ -158,6 +177,7 @@ public class FilterCarousel : MonoBehaviour
     }
 
     // Shows only the icon at currentIndex, hides all others, and updates the label and preview
+    // preview = false is used at the start, so the room isn't tinted before anyone touches the panel
     private void ShowCurrent(bool preview = true)
     {
         for (int i = 0; i < filterIcons.Length; i++)
@@ -168,6 +188,7 @@ public class FilterCarousel : MonoBehaviour
 
         if (filterNameLabel != null)
         {
+            // +1 because people count from 1, but arrays count from 0
             filterNameLabel.SetText(CurrentName() + "  (" + (currentIndex + 1) + " of " + filterIcons.Length + ")");
         }
 
@@ -182,10 +203,12 @@ public class FilterCarousel : MonoBehaviour
     }
 
     // Undoes every filter's sky and object changes, then applies this one's (-1 = none)
+    // (Undoing everything first means you can jump from any filter to any other without leftovers)
     private void ApplyScene(int index)
     {
         if (filterScenes == null || filterScenes.Length == 0) return;
 
+        // Step 1: reset. Hide every "show" object and make every "hide" object visible again.
         foreach (var fs in filterScenes)
         {
             if (fs == null) continue;
@@ -193,6 +216,7 @@ public class FilterCarousel : MonoBehaviour
             if (fs.hide != null) foreach (var go in fs.hide) SetVisible(go, true);
         }
 
+        // Step 2: apply the chosen filter's changes
         Material sky = defaultSkybox;
         if (index >= 0 && index < filterScenes.Length && filterScenes[index] != null)
         {
@@ -202,14 +226,16 @@ public class FilterCarousel : MonoBehaviour
             if (fs.skybox != null) sky = fs.skybox;
         }
 
+        // Only change the sky if it's different (updating the lighting is a bit costly)
         if (RenderSettings.skybox != sky)
         {
             RenderSettings.skybox = sky;
-            DynamicGI.UpdateEnvironment();
+            DynamicGI.UpdateEnvironment();   // refresh the lighting so objects match the new sky
         }
     }
 
     // Shows or hides an object's meshes but leaves its colliders on, so hidden walls still stop the player
+    // (SetActive(false) would remove the collider too, and people could walk out of the room)
     private static void SetVisible(GameObject go, bool visible)
     {
         if (go == null) return;
@@ -219,11 +245,13 @@ public class FilterCarousel : MonoBehaviour
     private void FlashName()
     {
         if (flashNameLabel == null) return;
+        // If a fade is already running (you pressed > quickly), stop it and start fresh
         if (flashRoutine != null) StopCoroutine(flashRoutine);
         flashRoutine = StartCoroutine(FlashNameRoutine());
     }
 
     // Shows the name, holds it, then fades it out over half a second
+    // (A coroutine, so it can wait over several frames without freezing the game)
     private IEnumerator FlashNameRoutine()
     {
         flashNameLabel.SetText(CurrentName());
@@ -233,7 +261,7 @@ public class FilterCarousel : MonoBehaviour
         for (float t = 0f; t < 0.5f; t += Time.deltaTime)
         {
             flashNameLabel.alpha = 1f - t / 0.5f;
-            yield return null;
+            yield return null;   // wait one frame
         }
         flashNameLabel.gameObject.SetActive(false);
     }
@@ -248,11 +276,13 @@ public class FilterCarousel : MonoBehaviour
             filterVolume.weight = 0f;
             return;
         }
+        // One Volume, many profiles: swapping the profile is quicker than having six volumes in the scene
         filterVolume.sharedProfile = filterLooks[index];
         filterVolume.weight = 1f;
     }
 
     // The filter's colour is the colour of its icon Image
+    // (So changing a filter's colour is as easy as recolouring its icon in the editor)
     private Color FilterColor(int index)
     {
         var image = filterIcons[index].GetComponent<Image>();
@@ -262,6 +292,8 @@ public class FilterCarousel : MonoBehaviour
     // Tints the environment, the mirror overlay and the hands
     private void ApplyColor(Color filterColor)
     {
+        // If real looks are set up, they handle the room's colour, so skip the simple tint
+        // (otherwise the two would stack and look wrong)
         bool usingLooks = filterVolume != null && filterLooks != null && filterLooks.Length > 0;
         if (colorAdjustments != null && !usingLooks)
         {
@@ -274,11 +306,12 @@ public class FilterCarousel : MonoBehaviour
         {
             if (previewRenderers[i] == null) continue;
             Color c = filterColor;
-            c.a = previewAlphas[i];
+            c.a = previewAlphas[i];   // keep each object's own see-through-ness
             SetColor(previewRenderers[i].material, c);
         }
     }
 
+    // The name to show: from filterNames if one was typed in, otherwise the icon object's name
     private string CurrentName()
     {
         if (filterNames != null && currentIndex < filterNames.Length && !string.IsNullOrEmpty(filterNames[currentIndex]))

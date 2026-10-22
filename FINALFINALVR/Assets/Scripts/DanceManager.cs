@@ -4,6 +4,8 @@ using UnityEngine.Audio;
 using UnityEngine.Video;
 using TMPro;
 
+// One bubble's data: WHEN to hit it and WHERE it appears.
+// [System.Serializable] lets Unity show these in the Inspector and save them with the scene.
 [System.Serializable]
 public class DanceCue
 {
@@ -15,6 +17,7 @@ public class DanceCue
 }
 
 // One song you can learn: its audio, an optional example video, and its bubbles
+// (Keeping all of a song's settings together means adding a new song is just adding one more entry.)
 [System.Serializable]
 public class DanceSong
 {
@@ -44,13 +47,17 @@ public class DanceSong
 
 // Runs Learn a Dance: plays the song, spawns a bubble for each cue, keeps score,
 // and has three stages: Practice (0.5x), Full speed, and Mastery (bubbles fade, then disappear).
+// WHY three stages: in Design Evaluation 2, hitting targets felt like a "crutch" rather than learning
+// the dance. So the stages go from slow with help -> full speed -> no help, which is "scaffolding":
+// support is slowly taken away until you can do it yourself.
+// WHY hands, not a laser pointer: pointing a laser at bubbles isn't dancing, so you touch them with your hands.
 public class DanceManager : MonoBehaviour
 {
     public enum Stage { Practice, FullSpeed, Mastery }
 
     [Header("Songs and bubbles")]
-    public AudioSource music;
-    public DanceBubble bubblePrefab;
+    public AudioSource music;            // the speaker that plays the song
+    public DanceBubble bubblePrefab;     // the bubble template that gets copied for each cue
 
     [Tooltip("Where the dancer stands, facing the mirror. Bubble positions are relative to this.")]
     public Transform danceSpot;
@@ -96,40 +103,45 @@ public class DanceManager : MonoBehaviour
     public TMP_Text historyText;
 
     // Song time in seconds. Practice plays at half speed, but cue times still line up because this is the song's own clock.
+    // (A "property": it looks like a variable to other scripts, but runs this code each time it's read.)
     public float SongTime
     {
         get
         {
             if (music.isPlaying) return music.time;
+            // When the song has ended, report the end of the song so any remaining bubbles count as missed
             return music.clip != null ? music.clip.length : 0f;
         }
     }
 
     private Stage stage;
     private bool playing;
-    private int songIndex;
-    private DanceCue[] cues;
-    private int nextCue;
+    private int songIndex;          // which song is selected (0 = Macarena, 1 = YMCA)
+    private DanceCue[] cues;        // the selected song's bubbles
+    private int nextCue;            // the next bubble that hasn't been spawned yet
     private int hits;
     private int misses;
-    private int attempt;
+    private int attempt;            // counts every finished attempt, for the history list
     private float heightScale = 1f;
     private float nextVideoCheck;
+    // Bubbles currently in the room, so they can all be removed on Stop
     private readonly List<DanceBubble> activeBubbles = new List<DanceBubble>();
+    // One line per finished attempt, so players (and I, when testing) can see if they're improving
     private readonly List<string> history = new List<string>();
 
     private void Start()
     {
         if (exampleScreen != null) exampleScreen.SetActive(false);
-        SelectSong(0);
+        SelectSong(0);   // Macarena is picked by default
         if (stageText != null) stageText.SetText("Pick a stage to start");
     }
 
     // Wire the song buttons' On Click () to this, with 0 for Macarena and 1 for YMCA
     public void SelectSong(int index)
     {
+        // Ignore bad numbers instead of crashing
         if (songs == null || index < 0 || index >= songs.Length) return;
-        if (playing) StopDance();
+        if (playing) StopDance();   // switching song mid-dance stops the old one first
         songIndex = index;
         DanceSong song = songs[index];
         cues = song.cues;
@@ -140,6 +152,7 @@ public class DanceManager : MonoBehaviour
     }
 
     // Wire the three stage buttons' On Click () to these
+    // (Buttons can only call simple public methods, so each stage gets a tiny method that calls Begin)
     public void StartPractice() { Begin(Stage.Practice); }
     public void StartFullSpeed() { Begin(Stage.FullSpeed); }
     public void StartMastery() { Begin(Stage.Mastery); }
@@ -154,6 +167,7 @@ public class DanceManager : MonoBehaviour
         if (stageText != null) stageText.SetText("Stopped");
     }
 
+    // Starts a new attempt at the chosen stage
     private void Begin(Stage newStage)
     {
         if (cues == null || cues.Length == 0)
@@ -163,23 +177,29 @@ public class DanceManager : MonoBehaviour
         }
 
         ClearBubbles();
+        // Sort the cues by time, so "the next cue" is always the next one in the song
         System.Array.Sort(cues, (a, b) => a.time.CompareTo(b.time));
 
         stage = newStage;
         nextCue = 0;
         heightScale = 1f;
+        // Scale bubble heights to the player, so a short or tall person can reach them comfortably (ergonomics).
+        // Head height / 1.6 m: someone 1.8 m tall gets bubbles about 12% higher.
         if (scaleToPlayerHeight && Camera.main != null)
         {
             float headHeight = Camera.main.transform.position.y - danceSpot.position.y;
+            // Ignore silly readings (e.g. headset on the desk) under 0.8 m
             if (headHeight > 0.8f) heightScale = headHeight / 1.6f;
         }
         hits = 0;
         misses = 0;
         playing = true;
 
+        // pitch = playback speed in Unity: 0.5 = half speed for Practice
         music.pitch = stage == Stage.Practice ? 0.5f : 1f;
         // Practice goes through the Pitch Shifter group, which undoes the deeper sound of half speed (0.5 x 2 = normal pitch)
         if (practiceGroup != null) music.outputAudioMixerGroup = stage == Stage.Practice ? practiceGroup : null;
+        // Skip the intro: start a few seconds before the first bubble
         music.time = Mathf.Max(0f, cues[0].time + timingOffset - secondsBeforeFirstBubble);
         music.Play();
         StartVideo();
@@ -193,6 +213,7 @@ public class DanceManager : MonoBehaviour
         if (!playing) return;
 
         // Spawn each bubble a little before it's due, so its approach glow shows where it will be
+        // A "while" (not "if") so that if two bubbles are due together (YMCA's two-hand letters), both appear
         float now = SongTime;
         while (nextCue < cues.Length && now >= cues[nextCue].time + timingOffset - leadTime)
         {
@@ -200,6 +221,7 @@ public class DanceManager : MonoBehaviour
             nextCue++;
         }
 
+        // Every bubble has been hit or missed, so the attempt is over
         if (hits + misses >= cues.Length) Finish();
         else KeepVideoInTime();
     }
@@ -209,7 +231,7 @@ public class DanceManager : MonoBehaviour
         if (exampleVideo == null || exampleVideo.clip == null) return;
         if (exampleScreen != null) exampleScreen.SetActive(true);
         exampleVideo.audioOutputMode = VideoAudioOutputMode.None; // the song comes from Music
-        exampleVideo.playbackSpeed = music.pitch;
+        exampleVideo.playbackSpeed = music.pitch;   // the video also slows to 0.5x in Practice
         exampleVideo.time = VideoTimeNow();
         exampleVideo.Play();
         nextVideoCheck = Time.time + 1f;
@@ -221,26 +243,32 @@ public class DanceManager : MonoBehaviour
         if (exampleScreen != null) exampleScreen.SetActive(false);
     }
 
-    // The video and the song drift apart slowly, so jump the video back in line if it's off by more than 0.2 s
+    // The video and the song drift apart slowly, so jump the video back in line if it's off by more than 0.3 s
     private void KeepVideoInTime()
     {
         // Jumping takes the video a moment, so check at most once a second; checking every frame kept it black
         if (exampleVideo == null || !exampleVideo.isPrepared || !exampleVideo.isPlaying || Time.time < nextVideoCheck) return;
         nextVideoCheck = Time.time + 1f;
+        // Mathf.Abs = the gap whether the video is ahead or behind
         if (Mathf.Abs((float)exampleVideo.time - VideoTimeNow()) > 0.3f) exampleVideo.time = VideoTimeNow();
     }
 
+    // Where the video should be right now, given where the song is
     private float VideoTimeNow()
     {
         return Mathf.Max(0f, music.time + songs[songIndex].videoOffset);
     }
 
+    // Creates the bubble for one cue
     private void Spawn(int index)
     {
         DanceCue cue = cues[index];
         Vector3 local = cue.position;
-        local.y *= heightScale;
+        local.y *= heightScale;   // adjust for the player's height
+        // TransformPoint turns "0.25 m to the right of the Dance Spot" into a real position in the room,
+        // so the bubbles follow the Dance Spot if it's moved or turned
         Vector3 worldPos = danceSpot.TransformPoint(local);
+        // Instantiate makes a copy of the bubble prefab at that position
         DanceBubble bubble = Instantiate(bubblePrefab, worldPos, Quaternion.identity);
 
         // Mastery: first half of the song shows faint outlines, second half shows nothing
@@ -255,6 +283,8 @@ public class DanceManager : MonoBehaviour
     }
 
     // Wire two small buttons to these. If bubbles arrive after the beat, press Earlier; if before, Later.
+    // WHY: audio on the headset can lag slightly, and it's easier to fine-tune timing while dancing
+    // in the headset than to guess numbers in the editor.
     public void NudgeEarlier() { Nudge(-0.05f); }
     public void NudgeLater() { Nudge(0.05f); }
 
@@ -266,6 +296,7 @@ public class DanceManager : MonoBehaviour
     }
 
     // Called by DanceBubble
+    // (The bubble tells the manager, so the score is kept in one place)
     public void BubbleHit(DanceBubble bubble)
     {
         hits++;
@@ -281,6 +312,7 @@ public class DanceManager : MonoBehaviour
         UpdateScore();
     }
 
+    // End of an attempt: stop everything and add a line to the history
     private void Finish()
     {
         playing = false;
@@ -288,6 +320,7 @@ public class DanceManager : MonoBehaviour
         StopVideo();
         attempt++;
 
+        // 100f (a float) so the division keeps decimals before rounding; with whole numbers 7/10 would be 0
         int percent = Mathf.RoundToInt(100f * hits / cues.Length);
         string line = "Attempt " + attempt + " (" + songs[songIndex].name + ", " + StageName() + "): " + hits + "/" + cues.Length + " (" + percent + "%)";
         history.Add(line);
@@ -296,6 +329,7 @@ public class DanceManager : MonoBehaviour
         if (stageText != null) stageText.SetText("Done! " + percent + "%");
         if (historyText != null)
         {
+            // Show only the last 5 attempts so the text fits on the board
             int first = Mathf.Max(0, history.Count - 5);
             historyText.SetText(string.Join("\n", history.GetRange(first, history.Count - first)));
         }
@@ -305,7 +339,7 @@ public class DanceManager : MonoBehaviour
     {
         foreach (var bubble in activeBubbles)
         {
-            if (bubble != null) Destroy(bubble.gameObject);
+            if (bubble != null) Destroy(bubble.gameObject);   // may already be gone if it just popped
         }
         activeBubbles.Clear();
     }
@@ -317,6 +351,7 @@ public class DanceManager : MonoBehaviour
         scoreText.SetText("Hit " + hits + "   Missed " + misses + "   of " + total);
     }
 
+    // The stage's name as shown to the player
     private string StageName()
     {
         switch (stage)
@@ -330,6 +365,9 @@ public class DanceManager : MonoBehaviour
     // Right-click the component > Fill Macarena cues (song 0). One round is 16 beats: 12 hand moves
     // (one per beat), then the hip sway and jump, which have no bubbles. Positions are where the moving
     // hand ends up, relative to the Dance Spot (x = right, y = up, z = toward the mirror), for a 1.6 m person.
+    // WHY: typing 36 times and positions by hand would be slow and error-prone. Because the Macarena is on
+    // a steady beat, the times can be calculated: time = first move + beat number x (60 / BPM).
+    // [ContextMenu] adds this as a right-click option on the component in the Inspector (editor only, not in-game).
     [ContextMenu("Fill Macarena cues (song 0)")]
     private void FillMacarenaCues()
     {
@@ -350,13 +388,15 @@ public class DanceManager : MonoBehaviour
         };
 
         DanceSong song = EnsureSong(0, "Macarena", 103f, 3);
-        float beat = 60f / song.bpm;
+        float beat = 60f / song.bpm;   // seconds per beat (103 BPM -> about 0.58 s)
         int rounds = Mathf.Max(1, song.rounds);
         song.cues = new DanceCue[rounds * moves.Length];
+        // Two loops: for each round, for each of the 12 moves
         for (int r = 0; r < rounds; r++)
         {
             for (int m = 0; m < moves.Length; m++)
             {
+                // r * 16 skips to the start of round r (each round is 16 beats), + m for the move's beat
                 float time = song.firstMove + (r * 16 + m) * beat;
                 song.cues[r * moves.Length + m] = new DanceCue { time = time, position = moves[m] };
             }
@@ -369,6 +409,7 @@ public class DanceManager : MonoBehaviour
     [ContextMenu("Fill YMCA chorus cues (song 1)")]
     private void FillYmcaCues()
     {
+        // An array of arrays: each letter has one or two hand positions
         Vector3[][] letters =
         {
             new[] { new Vector3( 0.35f, 1.95f, 0.25f), new Vector3(-0.35f, 1.95f, 0.25f) }, // Y  both arms up and out
@@ -379,8 +420,10 @@ public class DanceManager : MonoBehaviour
 
         DanceSong song = EnsureSong(1, "YMCA", 127f, 4);
         // Where "Y-M-C-A" is sung in the clip: 0:14, 0:17, 0:29, 0:32
+        // (The YMCA chorus isn't evenly spaced like the Macarena, so the start times are typed in)
         if (song.roundStarts == null || song.roundStarts.Length == 0) song.roundStarts = new[] { 14f, 17f, 29f, 32f };
         float beat = 60f / song.bpm;
+        // A List grows as items are added, handy because some letters add 2 cues and some add 1
         var list = new List<DanceCue>();
         int rounds = song.roundStarts.Length;
         for (int r = 0; r < rounds; r++)
@@ -395,6 +438,7 @@ public class DanceManager : MonoBehaviour
         MarkDirty();
     }
 
+    // Makes sure song slot "index" exists (making the array bigger if needed) and returns it
     private DanceSong EnsureSong(int index, string name, float bpm, int rounds)
     {
         if (songs == null || songs.Length <= index) System.Array.Resize(ref songs, index + 1);
@@ -403,6 +447,9 @@ public class DanceManager : MonoBehaviour
         return songs[index];
     }
 
+    // Tells Unity the component changed, so the new cues get saved with the scene.
+    // #if UNITY_EDITOR: this code only exists in the editor; it's left out of the Quest build
+    // (UnityEditor doesn't exist on the headset, so the build would fail without it).
     private void MarkDirty()
     {
 #if UNITY_EDITOR
