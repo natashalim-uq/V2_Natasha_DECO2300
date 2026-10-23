@@ -9,8 +9,11 @@ using TMPro;
 
 // Tools > Build Dance Panel: finishes Canvas - Dance (texts) and builds Canvas - Dance Buttons
 // beside the Dance Spot, with the eight buttons wired to Dance Manager.
-// WHY: the buttons are placed beside the Dance Spot at about waist-to-chest height and angled toward the
-// player, so they can be pressed without walking away from the spot (ergonomics / button placement).
+// WHY: the buttons are placed beside the Dance Spot at about waist height, within easy reach of the right hand
+// and angled toward the right shoulder, so they can be pressed without walking away from the spot (ergonomics).
+// Updated after headset testing: the first version was at full arm's stretch and angled toward the eyes, so
+// a finger met it side-on and presses were often missed. It still sits just outside where the dance bubbles
+// appear, so dancing doesn't press buttons by accident.
 // Building it in code means the eight buttons are evenly laid out and correctly wired every time.
 // (Editor-only helper, run from the Tools menu.)
 public static class DancePanelBuilder
@@ -50,16 +53,18 @@ public static class DancePanelBuilder
         canvas.renderMode = RenderMode.WorldSpace;   // floats in the room instead of being stuck to the screen
         if (Camera.main != null) canvas.worldCamera = Camera.main;
         var prt = (RectTransform)panel.transform;
-        prt.sizeDelta = new Vector2(360, 230);
-        prt.localScale = Vector3.one * 0.001f;   // 1 canvas unit = 1 mm, so the panel is 36 x 23 cm
+        prt.sizeDelta = new Vector2(400, 260);
+        prt.localScale = Vector3.one * 0.001f;   // 1 canvas unit = 1 mm, so the panel is 40 x 26 cm
         if (spot != null)
         {
-            // 60 cm to the right, 25 cm forward, 1.1 m up from the Dance Spot
-            Vector3 pos = spot.position + spot.right * 0.6f + spot.forward * 0.25f + Vector3.up * 1.1f;
-            Vector3 eye = spot.position + Vector3.up * 1.5f;   // roughly where the player's eyes are
+            // 50 cm to the right, 15 cm forward, 1.05 m up from the Dance Spot: about 45 cm from the right
+            // shoulder, a relaxed reach (the dance bubbles stay within 40 cm of the middle, so it's clear of them)
+            Vector3 pos = spot.position + spot.right * 0.5f + spot.forward * 0.15f + Vector3.up * 1.05f;
+            Vector3 shoulder = spot.position + spot.right * 0.2f + Vector3.up * 1.35f;   // roughly where the right shoulder is
             prt.position = pos;
-            // Turn the panel to face away from the eyes, which is how a world canvas reads correctly
-            prt.rotation = Quaternion.LookRotation(pos - eye, Vector3.up);
+            // Face away from the shoulder (how a world canvas reads correctly). A finger reaching from the
+            // shoulder then pushes straight into the buttons instead of brushing across them.
+            prt.rotation = Quaternion.LookRotation(pos - shoulder, Vector3.up);
         }
 
         // Background so the buttons are easy to see
@@ -73,16 +78,17 @@ public static class DancePanelBuilder
         // red = stop, grey = small timing adjustments
         Color pick = new Color(0.75f, 0.65f, 1f), go = new Color(0.55f, 0.85f, 0.6f), stop = new Color(1f, 0.55f, 0.55f), small = new Color(0.85f, 0.85f, 0.85f);
         // Row 1: songs (these pass a number, 0 or 1, to SelectSong)
-        AddIntButton(panel.transform, "Macarena", -85, 80, 160, 50, pick, dm.SelectSong, 0);
-        AddIntButton(panel.transform, "YMCA", 85, 80, 160, 50, pick, dm.SelectSong, 1);
+        // Buttons are 6 cm tall with 2 cm gaps: big enough for a fingertip, with room so you don't hit the neighbour
+        AddIntButton(panel.transform, "Macarena", -92, 85, 170, 60, pick, dm.SelectSong, 0);
+        AddIntButton(panel.transform, "YMCA", 92, 85, 170, 60, pick, dm.SelectSong, 1);
         // Row 2: stages
-        AddButton(panel.transform, "Practice (0.5x)", -115, 15, 105, 50, go, dm.StartPractice);
-        AddButton(panel.transform, "Full speed", 0, 15, 105, 50, go, dm.StartFullSpeed);
-        AddButton(panel.transform, "Mastery", 115, 15, 105, 50, go, dm.StartMastery);
+        AddButton(panel.transform, "Practice (0.5x)", -128, 5, 112, 60, go, dm.StartPractice);
+        AddButton(panel.transform, "Full speed", 0, 5, 112, 60, go, dm.StartFullSpeed);
+        AddButton(panel.transform, "Mastery", 128, 5, 112, 60, go, dm.StartMastery);
         // Row 3: stop and timing nudges
-        AddButton(panel.transform, "Stop", -115, -60, 105, 50, stop, dm.StopDance);
-        AddButton(panel.transform, "Earlier", 0, -60, 105, 50, small, dm.NudgeEarlier);
-        AddButton(panel.transform, "Later", 115, -60, 105, 50, small, dm.NudgeLater);
+        AddButton(panel.transform, "Stop", -128, -75, 112, 60, stop, dm.StopDance);
+        AddButton(panel.transform, "Earlier", 0, -75, 112, 60, small, dm.NudgeEarlier);
+        AddButton(panel.transform, "Later", 128, -75, 112, 60, small, dm.NudgeLater);
 
         EditorUtility.SetDirty(dm);
         EditorSceneManager.MarkSceneDirty(task.scene);

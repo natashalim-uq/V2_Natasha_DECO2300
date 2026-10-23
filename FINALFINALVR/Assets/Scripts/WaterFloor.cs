@@ -21,6 +21,10 @@ public class WaterFloor : MonoBehaviour
     void Awake()
     {
         mat = GetComponent<Renderer>().material;
+        // NOTE: Water.mat keeps a saved normal map (WaterRipplesNormal.png) in its Normal Map slot.
+        // WHY: Unity only puts the "normal map" version of the shader into the headset build if a saved
+        // material uses one. Without it, EnableKeyword below works in the Editor but does nothing on the
+        // Quest, and the water shows as a flat blue sheet. The texture made here still replaces it.
         // A "normal map" tells the lighting which way each tiny bit of the surface is facing.
         // Bumpy normals make smooth, flat geometry reflect light like it has ripples.
         mat.SetTexture("_BumpMap", MakeNormalMap(256));
