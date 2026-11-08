@@ -76,11 +76,11 @@ It is kept apart from `main` so it doesn't mix with or affect the current Unity 
 
 ## How AI was used
 
-I used Claude (an AI assistant) throughout this project. The full statement is in the [AI acknowledgement coversheet for the whole VR project](<All Reports/0 VR Project AI Acknowledgement and References/AI_Acknowledgment_Coversheet_Entire VR Project.docx>). In short:
+I used Claude throughout the build of this project. The full statement is in the [AI acknowledgement coversheet for the whole VR project](<All Reports/0 VR Project AI Acknowledgement and References/AI_Acknowledgment_Coversheet_Entire VR Project.docx>). In short:
 
 - **IP1:** I built it myself. Claude only helped write the C# for the interactions.
 - **The two broken repositories:** when my files stopped opening, I used Claude for several days to try to debug the problem, and to write a new `.gitignore` for the second repository with my tutor's help. Neither fix worked, which is why this third repository exists (see the history above).
 - **Rebuilding in this repository:** a lot of time had been lost by then, so I asked Claude to look through my IP1 files and write step-by-step instructions for rebuilding the project in Unity. I followed those instructions to rebuild it.
 - **Finishing the tasks and making improvements from user feedback:** I described what each task still needed and what testers wanted changed, and Claude wrote step-by-step instructions and helped with the scripting.
 
-The reports have their own AI acknowledgement coversheets in their folders (IP2b and Design Evaluation Outcome 3).
+Every single report also has its own AI acknowledgement coversheets in their folders.
